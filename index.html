@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <xmp>
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split, KFold, cross_val_score, cross_val_predict
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.decomposition import PCA
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, roc_auc_score
+
+
+from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+import sklearn.tree as tree
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import Perceptron, LogisticRegression, LinearRegression
+from sklearn.neural_network import MLPClassifier
+from sklearn.cluster import KMeans
+
+# Load the dataset (replace this with your dataset)
+data = pd.read_csv('ObesityDataSet_raw_and_data_sinthetic.csv')
+
+# 1. Display the first few rows of the dataset
+print("First few rows of the dataset:")
+print(data.head())
+
+data
+
+# 2. Display information about the dataset
+print("\nInformation about the dataset:")
+print(data.info())
+
+# 3. Display summary statistics
+print("\nSummary statistics of the dataset:")
+data.describe()
+
+# 4. Check for null values
+print("\nChecking for null values in the dataset:")
+print(data.isnull().sum())
+
+# 5. Display the shape of the dataset
+print("\nShape of the dataset:")
+print(data.shape)
+
+# 6. Display column names
+print("\nColumn names:")
+print(data.columns)
+
+data.dtypes
+
+def remove_outliers(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+# Applying outlier removal for each numerical column
+numerical_columns = data_cleaned.select_dtypes(include=['float64', 'int64']).columns
+for col in numerical_columns:
+    data_cleaned = remove_outliers(data_cleaned, col)
+
+print("\nShape of the dataset after removing outliers:", data_cleaned.shape)
+
+# Displaying the first few rows of the cleaned dataset
+print("\nFirst few rows of the cleaned dataset:")
+print(data_cleaned.head())
+        
+"""EDA
+
+"""
+
+# Box plot of 'Age' by 'Gender'
+plt.figure(figsize=(8, 6))
+sns.boxplot(x='Gender', y='Age', data=data)
+plt.title('Box Plot of Age by Gender')
+plt.show()
+
+plt.figure(figsize=(8, 6))
+sns.histplot(data['Age'], bins=30)
+plt.title('Histogram of Age')
+plt.show()
+
+sns.pairplot(data[['Age', 'Weight', 'Height']], diag_kind='kde')
+plt.title('Pairplot of Age, Weight, and Height by Gender')
+plt.show()
+
+plt.figure(figsize=(8, 6))
+sns.scatterplot(x='Age', y='Weight', data=data, hue='Gender')
+plt.title('Scatter Plot of Age vs. Weight')
+plt.show()
+
+plt.figure(figsize=(8, 6))
+sns.lineplot(x='Age', y='Weight', data=data, hue='Gender')
+plt.title('Line Plot of Weight over Age')
+plt.show()
+
+plt.figure(figsize=(8, 6))
+sns.scatterplot(x='Age', y='Weight', data=data, hue='Gender')
+plt.title('Scatter Plot of Age vs. Weight')
+plt.show()
+
+# Compute the correlation matrix
+numerical_cols = data.select_dtypes(include=['int64', 'float64']).columns
+corr_matrix = data[numerical_cols].corr()
+
+# Create a heatmap
+sns.heatmap(corr_matrix, annot=True, cmap='coolwarm')
+plt.title('Correlation Matrix')
+plt.show()
+
+# Separate numerical and categorical columns
+numerical_cols = data.select_dtypes(include=['int64', 'float64']).columns
+categorical_cols = data.select_dtypes(include=['object', 'category']).columns
+numerical_cols
+
+# Handle missing values for numerical columns
+numerical_imputer = SimpleImputer(strategy='mean')
+data[numerical_cols] = numerical_imputer.fit_transform(data[numerical_cols])
+
+data
+
+from sklearn.preprocessing import LabelEncoder
+
+# Define the target column
+target = 'NObeyesdad'  # Adjust the target variable name accordingly
+
+# Separate features and target
+X = data.drop(columns=[target])
+y = data[target]
+
+# Separate numerical and categorical columns
+numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns
+categorical_cols = X.select_dtypes(include=['object', 'category']).columns
+
+# Handle missing values for categorical columns using SimpleImputer
+categorical_imputer = SimpleImputer(strategy='most_frequent')
+X[categorical_cols] = categorical_imputer.fit_transform(X[categorical_cols])
+
+# Apply Label Encoder to categorical features
+label_encoder = LabelEncoder()
+for col in categorical_cols:
+    X[col] = label_encoder.fit_transform(X[col])
+
+X
+
+data = pd.concat([pd.DataFrame(X), pd.DataFrame(data[target])], axis=1)
+
+data
+
+# Display basic information about the dataset
+print(data.info())
+print(data.describe())
+print(data.isnull().sum())
+
+# Check types of each column
+print(data.dtypes)
+
+# Separate features and target
+X = data.drop(columns=[target])
+y = data[target]
+
+# Standardize the numerical features
+scaler = StandardScaler()
+X[numerical_cols] = scaler.fit_transform(X[numerical_cols])
+
+# Feature Selection
+selector = SelectKBest(score_func=f_classif, k=5)
+X_selected = selector.fit_transform(X, y)
+
+# PCA
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X_selected)
+
+# K-Fold cross-validation setup
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+train_index, test_index = next(kf.split(X_selected))
+
+# Splitting data for non-PCA
+X_train, X_test = X_selected[train_index], X_selected[test_index]
+y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+
+# Splitting data for PCA
+X_train_pca, X_test_pca = X_pca[train_index], X_pca[test_index]
+
+"""MODEL BUILDING"""
+
+from sklearn.preprocessing import label_binarize
+# Label binarization for multi-class ROC plotting
+classes = ['Normal_Weight', 'Overweight_Level_I', 'Overweight_Level_II',
+           'Obesity_Type_I', 'Insufficient_Weight', 'Obesity_Type_II',
+           'Obesity_Type_III']
+y_bin = label_binarize(y, classes=classes)
+n_classes = y_bin.shape[1]
+
+# Function for plotting ROC Curves
+def plot_roc_curve(y_test_bin, y_score, title):
+    fpr = {}
+    tpr = {}
+    roc_auc = {}
+    plt.figure()
+    for i in range(n_classes):
+        fpr[i], tpr[i], _ = roc_curve(y_test_bin[:, i], y_score[:, i])
+        roc_auc[i] = auc(fpr[i], tpr[i])
+        plt.plot(fpr[i], tpr[i], label=f'Class {classes[i]} (area = {roc_auc[i]:.2f})')
+    plt.plot([0, 1], [0, 1], 'k--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(f'ROC Curves for {title}')
+    plt.legend(loc="lower right", fontsize='small')
+    plt.show()
+
+# SVM Model Training without PCA
+svm_model = SVC(probability=True)
+svm_model.fit(X_train, y_train)
+y_pred = svm_model.predict(X_test)
+
+y_test_bin = y_bin[test_index]  # Binarized labels for testing
+y_score = svm_model.decision_function(X_test)  # Get decision function for all classes
+
+print("SVM Metrics without PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred, average="weighted"):.4f}')
+plot_roc_curve(y_test_bin, y_score, 'SVM without PCA')
+
+# SVM Model Training with PCA
+svm_model_pca = SVC(probability=True)
+svm_model_pca.fit(X_train_pca, y_train)
+y_pred_pca = svm_model_pca.predict(X_test_pca)
+
+
+y_test_bin = y_bin[test_index]  # Binarized labels for testing
+y_score_pca = svm_model_pca.decision_function(X_test_pca)  # Get decision function for all classes
+
+print("SVM Metrics with PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_pca):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_pca, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_pca, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_pca, average="weighted"):.4f}')
+plot_roc_curve(y_test_bin, y_score_pca, 'SVM with PCA')
+
+# For example, Naive Bayes without PCA:
+nb_model = GaussianNB()
+nb_model.fit(X_train, y_train)
+y_pred_nb = nb_model.predict(X_test)
+
+y_test_bin = y_bin[test_index]  # Binarized labels for testing
+y_score = nb_model.predict_proba(X_test)  # Get decision function for all classes
+print("Naive Bayes Metrics without PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_nb):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_nb, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_nb, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_nb, average="weighted"):.4f}')
+plot_roc_curve(y_test_bin, y_score, 'NB without PCA')
+
+# Naive Bayes with PCA:
+nb_model_pca = GaussianNB()
+nb_model_pca.fit(X_train_pca, y_train)
+y_pred_nb_pca = nb_model_pca.predict(X_test_pca)
+
+y_test_bin = y_bin[test_index]  # Binarized labels for testing
+y_score_pca = nb_model_pca.predict_proba(X_test_pca)  # Get decision function for all classes
+
+print("Naive Bayes Metrics with PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_nb_pca):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_nb_pca, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_nb_pca, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_nb_pca, average="weighted"):.4f}')
+plot_roc_curve(y_test_bin, y_score_pca, 'NB with PCA')
+
+
+
+# Decision Tree Classifier without PCA
+dt_model = DecisionTreeClassifier()
+dt_model.fit(X_train, y_train)
+y_pred_dt = dt_model.predict(X_test)
+print("Decision Tree Metrics without PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_dt):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_dt, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_dt, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_dt, average="weighted"):.4f}')
+
+fig = plt.figure(figsize=(20,15))
+tree.plot_tree(dt_model);
+
+# Decision Tree Classifier with PCA
+dt_model_pca = DecisionTreeClassifier()
+dt_model_pca.fit(X_train_pca, y_train)
+y_pred_dt_pca = dt_model_pca.predict(X_test_pca)
+print("Decision Tree Metrics with PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_dt_pca):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_dt_pca, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_dt_pca, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_dt_pca, average="weighted"):.4f}')
+
+fig = plt.figure(figsize=(20,15))
+tree.plot_tree(dt_model_pca);
+
+# Random Forest Classifier without PCA
+rf_model = RandomForestClassifier()
+rf_model.fit(X_train, y_train)
+y_pred_rf = rf_model.predict(X_test)
+print("Random Forest Metrics without PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_rf):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_rf, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_rf, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_rf, average="weighted"):.4f}')
+
+# Random Forest Classifier with PCA
+rf_model_pca = RandomForestClassifier()
+rf_model_pca.fit(X_train_pca, y_train)
+y_pred_rf_pca = rf_model_pca.predict(X_test_pca)
+print("Random Forest Metrics with PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_rf_pca):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_rf_pca, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_rf_pca, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_rf_pca, average="weighted"):.4f}')
+
+# Perceptron without PCA
+perceptron_model = Perceptron()
+perceptron_model.fit(X_train, y_train)
+y_pred_perceptron = perceptron_model.predict(X_test)
+print("Perceptron Metrics without PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_perceptron):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_perceptron, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_perceptron, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_perceptron, average="weighted"):.4f}')
+
+# Perceptron with PCA
+perceptron_model_pca = Perceptron()
+perceptron_model_pca.fit(X_train_pca, y_train)
+y_pred_perceptron_pca = perceptron_model_pca.predict(X_test_pca)
+
+print("Perceptron Metrics with PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_perceptron_pca):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_perceptron_pca, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_perceptron_pca, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_perceptron_pca, average="weighted"):.4f}')
+
+# MLP Classifier without PCA
+mlp_model = MLPClassifier(random_state=42)
+mlp_model.fit(X_train, y_train)
+y_pred_mlp = mlp_model.predict(X_test)
+print("MLP Metrics without PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_mlp):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_mlp, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_mlp, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_mlp, average="weighted"):.4f}')
+
+#MLP Classifier with PCA
+mlp_model_pca = MLPClassifier(random_state=42)
+mlp_model_pca.fit(X_train_pca, y_train)
+y_pred_mlp_pca = mlp_model_pca.predict(X_test_pca)
+print("MLP Metrics with PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_mlp_pca):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_mlp_pca, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_mlp_pca, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_mlp_pca, average="weighted"):.4f}')
+
+# Logistic Regression without PCA
+logistic_model = LogisticRegression()
+logistic_model.fit(X_train, y_train)
+y_pred_logistic = logistic_model.predict(X_test)
+print("Logistic Regression Metrics without PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_logistic):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_logistic, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_logistic, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_logistic, average="weighted"):.4f}')
+
+# Logistic Regression with PCA
+logistic_model_pca = LogisticRegression()
+logistic_model_pca.fit(X_train_pca, y_train)
+y_pred_logistic_pca = logistic_model_pca.predict(X_test_pca)
+print("Logistic Regression Metrics with PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_logistic_pca):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_logistic_pca, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_logistic_pca, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_logistic_pca, average="weighted"):.4f}')
+
+from sklearn.ensemble import AdaBoostClassifier, BaggingClassifier
+
+#AdaBoost without PCA
+ada_model = AdaBoostClassifier()
+ada_model.fit(X_train, y_train)
+y_pred_ada = ada_model.predict(X_test)
+y_score_ada = ada_model.decision_function(X_test)  # AdaBoost may require .predict_proba depending on sklearn version
+print("AdaBoost Metrics without PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_ada):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_ada, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_ada, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_ada, average="weighted"):.4f}')
+plot_roc_curve(y_test_bin, y_score_ada, 'AdaBoost without PCA')
+
+# Bagging without PCA
+bagging_model = BaggingClassifier()
+bagging_model.fit(X_train, y_train)
+y_pred_bagging = bagging_model.predict(X_test)
+y_score_bagging = bagging_model.predict_proba(X_test)
+
+print("Bagging Metrics without PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_bagging):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_bagging, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_bagging, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_bagging, average="weighted"):.4f}')
+plot_roc_curve(y_test_bin, y_score_bagging, 'Bagging without PCA')
+
+from sklearn.neighbors import KNeighborsClassifier
+
+# KNN Model Training without PCA
+knn_model = KNeighborsClassifier()
+knn_model.fit(X_train, y_train)
+y_pred_knn = knn_model.predict(X_test)
+y_proba_knn = knn_model.predict_proba(X_test)
+
+print("KNN Metrics without PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_knn):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_knn, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_knn, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_knn, average="weighted"):.4f}')
+
+plot_roc_curve(y_test_bin, y_proba_knn, 'KNN without PCA')
+
+# KNN Model Training with PCA
+knn_model_pca = KNeighborsClassifier()
+knn_model_pca.fit(X_train_pca, y_train)
+y_pred_pca_knn = knn_model_pca.predict(X_test_pca)
+y_proba_pca_knn = knn_model_pca.predict_proba(X_test_pca)
+
+y_test_bin = y_bin[test_index]  # Binarized labels for testing
+
+print("KNN Metrics with PCA:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred_pca_knn):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred_pca_knn, average="weighted"):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred_pca_knn, average="weighted"):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred_pca_knn, average="weighted"):.4f}')
+
+plot_roc_curve(y_test_bin, y_proba_pca_knn, 'KNN with PCA')
+
+"""CLUSTERING AND REGRESSION"""
+
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+
+# Elbow method to find the optimal number of clusters
+def elbow_method(X, title='Elbow Method for Optimal k'):
+    distortions = []
+    K = range(1, 11)
+    for k in K:
+        kmeans = KMeans(n_clusters=k, random_state=42)
+        kmeans.fit(X)
+        distortions.append(kmeans.inertia_)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(K, distortions, 'bx-')
+    plt.xlabel('k')
+    plt.ylabel('Distortion')
+    plt.title(title)
+    plt.show()
+
+# Plot KMeans clusters
+def plot_clusters(X, n_clusters, title='KMeans Clusters'):
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+    y_kmeans = kmeans.fit_predict(X)
+    sil_score = silhouette_score(X_pca, y_kmeans)
+    print(f'Silhouette Score: {sil_score:.4f}')
+
+    plt.figure(figsize=(10, 6))
+    plt.scatter(X[:, 0], X[:, 1], c=y_kmeans, s=50, cmap='viridis')
+    centers = kmeans.cluster_centers_
+    plt.scatter(centers[:, 0], centers[:, 1], c='red', s=200, alpha=0.75)
+    plt.title(title)
+    plt.show()
+
+# Elbow method and clustering without PCA
+print("Elbow method for original data")
+elbow_method(X_selected)
+
+# Assuming we choose 3 clusters from the elbow method
+print("KMeans Clustering without PCA")
+plot_clusters(X_selected, n_clusters=3, title='KMeans Clusters without PCA')
+
+# Elbow method and clustering with PCA
+print("Elbow method for PCA data")
+elbow_method(X_pca)
+
+# Assuming we choose 3 clusters from the elbow method
+print("KMeans Clustering with PCA")
+plot_clusters(X_pca, n_clusters=3, title='KMeans Clusters with PCA')
+
+"""LINEAR REGRESSION"""
+
+'''from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.model_selection import train_test_split, KFold
+
+# Assuming we have another numerical column 'target_num' for linear regression
+target_num = 'target_num'
+X = data.drop(columns=[target_num])
+y = data[target_num]
+
+# Apply the same preprocessing to the data
+X_transformed = preprocessor.fit_transform(X)
+X_selected = selector.fit_transform(X_transformed, y)
+
+# PCA transformation
+X_pca = pca.fit_transform(X_selected)
+
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+
+# Linear regression without PCA
+lr_model = LinearRegression()
+
+# Without PCA
+print("Linear Regression Metrics Without PCA:")
+for train_index, test_index in kf.split(X_selected):
+    X_train, X_test = X_selected[train_index], X_selected[test_index]
+    y_train, y_test = y[train_index], y[test_index]
+
+    lr_model.fit(X_train, y_train)
+    y_pred_train = lr_model.predict(X_train)
+    y_pred_test = lr_model.predict(X_test)
+
+    print(f'Train RMSE: {mean_squared_error(y_train, y_pred_train, squared=False):.4f}')
+    print(f'Test RMSE: {mean_squared_error(y_test, y_pred_test, squared=False):.4f}')
+    print(f'Train MAE: {mean_absolute_error(y_train, y_pred_train):.4f}')
+    print(f'Test MAE: {mean_absolute_error(y_test, y_pred_test):.4f}')
+    print(f'Train R2: {r2_score(y_train, y_pred_train):.4f}')
+    print(f'Test R2: {r2_score(y_test, y_pred_test):.4f}')
+    print(f'Train Accuracy: {lr_model.score(X_train, y_train):.4f}')
+    print(f'Test Accuracy: {lr_model.score(X_test, y_test):.4f}')
+    print()
+
+# Linear regression with PCA
+lr_model_pca = LinearRegression()
+
+# With PCA
+print("Linear Regression Metrics With PCA:")
+for train_index, test_index in kf.split(X_pca):
+    X_train, X_test = X_pca[train_index], X_pca[test_index]
+    y_train, y_test = y[train_index], y[test_index]
+
+    lr_model_pca.fit(X_train, y_train)
+    y_pred_train = lr_model_pca.predict(X_train)
+    y_pred_test = lr_model_pca.predict(X_test)
+
+    print(f'Train RMSE: {mean_squared_error(y_train, y_pred_train, squared=False):.4f}')
+    print(f'Test RMSE: {mean_squared_error(y_test, y_pred_test, squared=False):.4f}')
+    print(f'Train MAE: {mean_absolute_error(y_train, y_pred_train):.4f}')
+    print(f'Test MAE: {mean_absolute_error(y_test, y_pred_test):.4f}')
+    print(f'Train R2: {r2_score(y_train, y_pred_train):.4f}')
+    print(f'Test R2: {r2_score(y_test, y_pred_test):.4f}')
+    print(f'Train Accuracy: {lr_model_pca.score(X_train, y_train):.4f}')
+    print(f'Test Accuracy: {lr_model_pca.score(X_test, y_test):.4f}')
+    print() ''' 
+
+
+        
+    '''print("SVM Metrics:")
+print(f'Accuracy: {accuracy_score(y_test, y_pred):.4f}')
+print(f'Precision: {precision_score(y_test, y_pred):.4f}')
+print(f'Recall: {recall_score(y_test, y_pred):.4f}')
+print(f'F1 Score: {f1_score(y_test, y_pred):.4f}')
+print(f'Confusion Matrix:\n{confusion_matrix(y_test, y_pred)}')
+print(f'ROC AUC: {roc_auc_score(y_test, svm_model.predict_proba(X_test)[:, 1]):.4f}')
+print(f'Mean cross-validation accuracy: {cv_results.mean():.4f}')
+fpr, tpr, _ = roc_curve(y_test, svm_model.predict_proba(X_test)[:, 1])
+plt.plot(fpr, tpr, label="SVM")
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve')
+plt.legend()
+plt.show() '''
+
+
+</xmp>
+</body>
+</html>
